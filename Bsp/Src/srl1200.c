@@ -113,14 +113,13 @@ int SRL1200_ReadTagSingle(UART_HandleTypeDef * huart,
 													uint32_t selectAddress,
                           uint8_t  selectDataLen,
 													uint8_t * selectData,
-													uint8_t len,
+													uint8_t selectDataActualLen,
 													Data_Buf_t * result,
 													uint16_t * statusCode)
 {
 	DataBuf_Clear(&tmpDataPack);
-	tmpDataPack.buf[tmpDataPack.size++] = timeout/256;
-	tmpDataPack.buf[tmpDataPack.size++] = timeout%256;
-
+	
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
 	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
 	
 	if((selectOption & 0x10) != 0)
@@ -140,10 +139,11 @@ int SRL1200_ReadTagSingle(UART_HandleTypeDef * huart,
 	if((selectOption & 0x03) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
-		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, len);
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
 	}
 	
-	tmpDataPack.size = tmpDataPack.size + len;
+	
 	
 	return SRL1200_SendData(huart, 0x21, &tmpDataPack, timeout, result, statusCode);
 }
@@ -170,43 +170,36 @@ int SRL1200_ReadTagMultiple(UART_HandleTypeDef * huart,
 														uint32_t selectAddress,
 														uint8_t  selectDataLen,
 														uint8_t * selectData,
-														uint8_t len,
+														uint8_t selectDataActualLen,
 														Data_Buf_t * result,
 														uint16_t * statusCode)
 {
 	DataBuf_Clear(&tmpDataPack);
 	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
-	tmpDataPack.buf[tmpDataPack.size++] = searchFlags/256;
-	tmpDataPack.buf[tmpDataPack.size++] = searchFlags%256;
-	tmpDataPack.buf[tmpDataPack.size++] = timeout/256;
-	tmpDataPack.buf[tmpDataPack.size++] = timeout%256;
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&searchFlags, 2);
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
 	
 	if(selectOption != 0x00)
 	{
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword)+3);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword)+2);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword)+1);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword));
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
 	if((selectOption & 0x03) == 0x03)
 	{
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+3);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+2);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+1);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress));
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
 	if((selectOption & 0x03) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
-		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, len);
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
 	}
-	
-	tmpDataPack.size = tmpDataPack.size + len;
 	
 	return SRL1200_SendData(huart, 0x22, &tmpDataPack, timeout, result, statusCode);
 }
+
+
 
 /**
   * @brief  更新标签的 EPC。
@@ -230,15 +223,14 @@ int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart,
 												uint32_t selectAddress,
 												uint8_t  selectDataLen,
 												uint8_t * selectData,
-												uint8_t len,
+												uint8_t selectDataActualLen,
 												uint8_t * EPCTagID,
 												uint8_t EPCTagIDLen,
 												Data_Buf_t * result,
 												uint16_t * statusCode)
 {
 	DataBuf_Clear(&tmpDataPack);
-	tmpDataPack.buf[tmpDataPack.size++] = timeout/256;
-	tmpDataPack.buf[tmpDataPack.size++] = timeout%256;
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
 	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
 
 	if(selectOption == 0x00)
@@ -248,25 +240,19 @@ int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart,
 	
 	if(selectOption != 0x00)
 	{
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword)+3);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword)+2);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword)+1);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&accessPassword));
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
 	if((selectOption & 0x03) == 0x03)
 	{
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+3);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+2);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+1);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress));
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
 	if((selectOption & 0x03) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
-		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, len);
-		tmpDataPack.size = tmpDataPack.size + len;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
 	}
 	
 	memcpy(&tmpDataPack.buf[tmpDataPack.size], EPCTagID, EPCTagIDLen);
@@ -276,7 +262,7 @@ int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  更新标签的 EPC。
+  * @brief  往标签写入数据。
   * @param  huart: 串口句柄。
 	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
 	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
@@ -291,14 +277,14 @@ int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart,
   */
 int SRL1200_WriteTagData(UART_HandleTypeDef * huart,
 												uint16_t timeout,
-												uint8_t option,
+												uint8_t selectOption,
 												uint32_t writeAddress,														
 												uint8_t writeMemBank,
 												uint32_t accessPassword,
 												uint32_t selectAddress,
 												uint8_t  selectDataLen,
 												uint8_t * selectData,
-												uint8_t len,
+												uint8_t selectDataActualLen,
 												uint8_t * writeData,
 												uint8_t writeDataLen,
 												Data_Buf_t * result,
@@ -307,16 +293,385 @@ int SRL1200_WriteTagData(UART_HandleTypeDef * huart,
 	DataBuf_Clear(&tmpDataPack);
 
 	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
-	tmpDataPack.buf[tmpDataPack.size++] = option;
+	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
 	
 	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&writeAddress, 4);
 	tmpDataPack.buf[tmpDataPack.size++] = writeMemBank;
 	
+	if(selectOption != 0x00)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
+	}
+	
+	if((selectOption & 0x03) == 0x03)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
+	}
+	
+	if((selectOption & 0x03) > 0)
+	{
+		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
+	}
+	
 	memcpy(&tmpDataPack.buf[tmpDataPack.size], writeData, writeDataLen);
 	tmpDataPack.size = tmpDataPack.size + writeDataLen;
 	
-	return SRL1200_SendData(huart, 0x23, &tmpDataPack, timeout, result, statusCode);
+	return SRL1200_SendData(huart, 0x24, &tmpDataPack, timeout, result, statusCode);
 }
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_LockOrUnlockTag(UART_HandleTypeDef * huart,
+														uint16_t timeout,
+														uint8_t selectOption,
+														uint32_t accessPassword,
+														uint16_t maskBits,
+														uint16_t actionBits,
+														uint32_t selectAddress,
+														uint8_t  selectDataLen,
+														uint8_t * selectData,
+														uint8_t selectDataActualLen,
+														Data_Buf_t * result,
+														uint16_t * statusCode)
+{
+	DataBuf_Clear(&tmpDataPack);
+
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
+	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
+	
+	if(selectOption != 0x00)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
+	}
+	
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&maskBits, 2);
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&actionBits, 2);
+	
+	if((selectOption & 0x03) == 0x03)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
+	}
+	
+	if((selectOption & 0x03) > 0)
+	{
+		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
+	}
+	
+	return SRL1200_SendData(huart, 0x25, &tmpDataPack, timeout, result, statusCode);
+}
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_KillTag(UART_HandleTypeDef * huart,
+														uint16_t timeout,
+														uint8_t selectOption,
+														uint32_t killPassword,
+														uint8_t RUF,
+														uint32_t selectAddress,
+														uint8_t  selectDataLen,
+														uint8_t * selectData,
+														uint8_t selectDataActualLen,
+														Data_Buf_t * result,
+														uint16_t * statusCode)
+{
+	DataBuf_Clear(&tmpDataPack);
+
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
+	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
+	
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&killPassword, 4);
+	
+	tmpDataPack.buf[tmpDataPack.size++] = RUF;
+	
+	if((selectOption & 0x03) == 0x03)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
+	}
+	
+	if((selectOption & 0x03) > 0)
+	{
+		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
+	}
+	
+	return SRL1200_SendData(huart, 0x26, &tmpDataPack, timeout, result, statusCode);
+}
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_ReadTagData(UART_HandleTypeDef * huart,
+												uint16_t timeout,
+												uint8_t selectOption,
+												uint16_t metaDataFlag,
+												uint8_t readMemBank,
+												uint32_t readAddress,
+												uint8_t wordCount,
+												uint32_t accessPassword,
+												uint32_t selectAddress,
+												uint8_t  selectDataLen,
+												uint8_t * selectData,
+												uint8_t selectDataActualLen,
+												Data_Buf_t * result,
+												uint16_t * statusCode)
+{
+	DataBuf_Clear(&tmpDataPack);
+
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
+	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
+	
+	if((selectOption & 0x10) != 0)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&metaDataFlag, 2);
+	}
+	
+	tmpDataPack.buf[tmpDataPack.size++] = readMemBank;
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&readAddress, 4);
+	
+	tmpDataPack.buf[tmpDataPack.size++] = wordCount;
+	
+	if(selectOption != 0x00)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
+	}
+	
+	if((selectOption & 0x03) == 0x03)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
+	}
+	
+	if((selectOption & 0x03) > 0)
+	{
+		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
+	}
+	
+	return SRL1200_SendData(huart, 0x28, &tmpDataPack, timeout, result, statusCode);
+}
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_ReadSaveTagInfo(UART_HandleTypeDef * huart,
+												uint16_t  metadataFlags,
+												uint8_t readOption,
+												Data_Buf_t * result,
+												uint16_t * statusCode)
+{
+	DataBuf_Clear(&tmpDataPack);
+
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&metadataFlags, 2);
+	tmpDataPack.buf[tmpDataPack.size++] = readOption;
+	
+	return SRL1200_SendData(huart, 0x29, &tmpDataPack, 1000, result, statusCode);
+}
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_ClearTagCache(UART_HandleTypeDef * huart,
+												uint16_t  metadataFlags,
+												uint8_t readOption,
+												Data_Buf_t * result,
+												uint16_t * statusCode)
+{
+	return SRL1200_SendData(huart, 0x2A, NULL, 1000, result, statusCode);
+}
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_BlockWrite(UART_HandleTypeDef * huart,
+												uint16_t timeout,
+												uint8_t chipType,
+												uint8_t selectOption,
+												uint16_t subCommand,
+												uint32_t accessPassword,
+												uint32_t selectAddress,
+												uint8_t  selectDataLen,
+												uint8_t * selectData,
+												uint8_t selectDataActualLen,
+												uint8_t writeFlag,
+												uint8_t memBank,
+												uint32_t wordPoint,
+												uint8_t wordCount,
+												uint8_t * data,
+												Data_Buf_t * result,
+												uint16_t * statusCode)
+{
+	DataBuf_Clear(&tmpDataPack);
+
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
+	tmpDataPack.buf[tmpDataPack.size++] = chipType;
+	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
+	
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&subCommand, 2);
+	
+	
+	if(selectOption != 0x40)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
+	}
+	
+	if((selectOption & 0x03) == 0x03)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
+	}
+	
+	if((selectOption & 0x03) > 0)
+	{
+		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
+	}
+	tmpDataPack.buf[tmpDataPack.size++] = writeFlag;
+	tmpDataPack.buf[tmpDataPack.size++] = memBank;
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&wordPoint, 4);
+	tmpDataPack.buf[tmpDataPack.size++] = wordCount;
+	
+	memcpy(&tmpDataPack.buf[tmpDataPack.size], data, wordCount*2);
+	tmpDataPack.size = tmpDataPack.size + wordCount*2;
+	
+	return SRL1200_SendData(huart, 0x2D, &tmpDataPack, timeout, result, statusCode);
+}
+
+/**
+  * @brief  往标签写入数据。
+  * @param  huart: 串口句柄。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
+	* @param  selectAddress: 
+	* @param  selectDataLen: 
+	* @param  selectData: 
+	* @param  len: selectData 数据的实际长度  
+	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
+	* @param  result：保存模块回复的数据。
+  * @param  statusCode：，模块回复的状态码。
+	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
+  */
+int SRL1200_BlockClear(UART_HandleTypeDef * huart,
+												uint16_t timeout,
+												uint8_t chipType,
+												uint8_t selectOption,
+												uint16_t subCommand,
+												uint32_t accessPassword,
+												uint32_t selectAddress,
+												uint8_t  selectDataLen,
+												uint8_t * selectData,
+												uint8_t selectDataActualLen,
+												uint32_t wordPoint,
+												uint8_t memBank,
+												uint8_t wordCount,
+												Data_Buf_t * result,
+												uint16_t * statusCode)
+{
+	DataBuf_Clear(&tmpDataPack);
+
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
+	tmpDataPack.buf[tmpDataPack.size++] = chipType;
+	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
+	
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&subCommand, 2);
+	
+	
+	if(selectOption != 0x40)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
+	}
+	
+	if((selectOption & 0x03) == 0x03)
+	{
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
+	}
+	
+	if((selectOption & 0x03) > 0)
+	{
+		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
+		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
+		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
+	}
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&wordPoint, 4);
+	tmpDataPack.buf[tmpDataPack.size++] = memBank;
+	
+	tmpDataPack.buf[tmpDataPack.size++] = wordCount;
+	
+	return SRL1200_SendData(huart, 0x2D, &tmpDataPack, timeout, result, statusCode);
+}
+
 
 /**
   * @brief  设置天线的配置。
@@ -1034,7 +1389,7 @@ static void SRL1200_Log(SRL1200_RecvData_t *recvData)
 
 static void SRL1200_WriteByteData(Data_Buf_t * dest, uint8_t * data, uint8_t len)
 {
-	for(uint8_t i = len-1; i >= 0; i--)
+	for(int8_t i = len-1; i >= 0; i--)
 	{
 		dest->buf[dest->size++] = *(data+i);
 	}
