@@ -565,6 +565,28 @@
         </Group>
         <Group>
           <GroupName>Application/Bsp</GroupName>
+          <Files>
+            <File>
+              <FileName>crc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\Src\crc.c</FilePath>
+            </File>
+            <File>
+              <FileName>data_buf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\Src\data_buf.c</FilePath>
+            </File>
+            <File>
+              <FileName>srl1200.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\Src\srl1200.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart_to_printf.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Bsp\Src\uart_to_printf.c</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>::CMSIS</GroupName>
