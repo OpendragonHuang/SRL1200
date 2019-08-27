@@ -31,7 +31,7 @@ static void SRL1200_WriteByteData(Data_Buf_t * dest, uint8_t * data, uint8_t len
 
 
 /**
-  * @brief  初始化 SRL1200 。
+  * @brief 初始化 SRL1200。
   */
 void SRL1200_Init(void)
 {
@@ -43,6 +43,9 @@ void SRL1200_Init(void)
 	DataBuf_Init(&tmpDataPack);
 }
 
+/**
+  * @brief 初始化 SRL1200 引脚。
+  */
 static void SRL1200_PinInit(void)
 {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -65,16 +68,25 @@ static void SRL1200_PinInit(void)
   HAL_GPIO_Init(SRL1200_RST_GPIO_Port, &GPIO_InitStruct);
 }
 
+/**
+  * @brief  使能 SRL1200。
+  */
 void SRL1200_Enable(void)
 {
 	HAL_GPIO_WritePin(SRL1200_EN_GPIO_Port, SRL1200_EN_Pin, GPIO_PIN_SET);
 }
 
+/**
+  * @brief 失能 SRL1200。
+  */
 void SRL1200_Disable(void)
 {
 	HAL_GPIO_WritePin(SRL1200_EN_GPIO_Port, SRL1200_EN_Pin, GPIO_PIN_RESET);
 }
 
+/**
+  * @brief 复位 SRL1200。
+  */
 void SRL1200_RST(void)
 {
 	HAL_GPIO_WritePin(SRL1200_RST_GPIO_Port, SRL1200_RST_Pin, GPIO_PIN_RESET);
@@ -84,7 +96,7 @@ void SRL1200_RST(void)
 }
 
 /**
-  * @brief  让 SRL1200 从 Boot 层切换到 App 层。
+  * @brief 让 SRL1200 从 Boot 层切换到 App 层。
   */
 int SRL1200_BootSwitchApp(UART_HandleTypeDef * huart)
 {
@@ -93,17 +105,17 @@ int SRL1200_BootSwitchApp(UART_HandleTypeDef * huart)
 }
 
 /**
-  * @brief  读取单个标签的信息。
+  * @brief  单标签存盘命令。
   * @param  huart: 串口句柄。
+  * @param  timeout: 超过此时间，还没有收到模块回复，表示发送失败。
 	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
 	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
-	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。 
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度  
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_ReadTagSingle(UART_HandleTypeDef * huart, 
@@ -124,27 +136,20 @@ int SRL1200_ReadTagSingle(UART_HandleTypeDef * huart,
 	
 	if((selectOption & 0x10) != 0)
 	{
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&metaDataFlag)+1);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&metaDataFlag)+0);
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&metaDataFlag, 2);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+3);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+2);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress)+1);
-		tmpDataPack.buf[tmpDataPack.size++] = *((uint8_t *)(&selectAddress));
+		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
 		tmpDataPack.size = tmpDataPack.size + selectDataActualLen;
 	}
-	
-	
-	
 	return SRL1200_SendData(huart, 0x21, &tmpDataPack, timeout, result, statusCode);
 }
 
@@ -152,14 +157,15 @@ int SRL1200_ReadTagSingle(UART_HandleTypeDef * huart,
   * @brief  多标签存盘命令。
   * @param  huart: 串口句柄。
 	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
+	* @param  searchFlags: 参考 SRL1200 数据手册。 
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  accessPassword：标签密码，没有设置为 0。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。 
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度  
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_ReadTagMultiple(UART_HandleTypeDef * huart, 
@@ -184,12 +190,12 @@ int SRL1200_ReadTagMultiple(UART_HandleTypeDef * huart,
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -204,15 +210,18 @@ int SRL1200_ReadTagMultiple(UART_HandleTypeDef * huart,
 /**
   * @brief  更新标签的 EPC。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  RUF: 默认为 0 。
+	* @param  accessPassword：标签密码，没有设置为 0。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  EPCTagID: EPCTagID。
+	* @param  EPCTagIDLen: EPCTagID 长度。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart, 
@@ -243,12 +252,12 @@ int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart,
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -264,15 +273,19 @@ int SRL1200_WriteTagEPC(UART_HandleTypeDef * huart,
 /**
   * @brief  往标签写入数据。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  writeAddress: 参考 SRL1200 数据手册。 
+	* @param  writeMemBank: 参考 SRL1200 数据手册。
+	* @param  accessPassword：标签密码，没有设置为 0。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  writeData: 待写入的数据。
+	* @param  writeDataLen: 待写入的数据长度。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_WriteTagData(UART_HandleTypeDef * huart,
@@ -303,12 +316,12 @@ int SRL1200_WriteTagData(UART_HandleTypeDef * huart,
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -322,17 +335,19 @@ int SRL1200_WriteTagData(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  锁定或解锁标签。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
+	* @param  accessPassword：标签密码，没有设置为 0。
+	* @param  maskBits: 参考 SRL1200 数据手册。 
+	* @param  actionBits: 参考 SRL1200 数据手册。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_LockOrUnlockTag(UART_HandleTypeDef * huart,
@@ -353,20 +368,17 @@ int SRL1200_LockOrUnlockTag(UART_HandleTypeDef * huart,
 	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&timeout, 2);
 	tmpDataPack.buf[tmpDataPack.size++] = selectOption;
 	
-	if(selectOption != 0x00)
-	{
-		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
-	}
+	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	
 	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&maskBits, 2);
 	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&actionBits, 2);
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -377,30 +389,31 @@ int SRL1200_LockOrUnlockTag(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  杀死标签。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。 
+	* @param  killPassword: 杀死标签的密码。
+	* @param  RUF: 参考 SRL1200 数据手册。。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_KillTag(UART_HandleTypeDef * huart,
-														uint16_t timeout,
-														uint8_t selectOption,
-														uint32_t killPassword,
-														uint8_t RUF,
-														uint32_t selectAddress,
-														uint8_t  selectDataLen,
-														uint8_t * selectData,
-														uint8_t selectDataActualLen,
-														Data_Buf_t * result,
-														uint16_t * statusCode)
+										uint16_t timeout,
+										uint8_t selectOption,
+										uint32_t killPassword,
+										uint8_t RUF,
+										uint32_t selectAddress,
+										uint8_t  selectDataLen,
+										uint8_t * selectData,
+										uint8_t selectDataActualLen,
+										Data_Buf_t * result,
+										uint16_t * statusCode)
 {
 	DataBuf_Clear(&tmpDataPack);
 
@@ -411,12 +424,12 @@ int SRL1200_KillTag(UART_HandleTypeDef * huart,
 	
 	tmpDataPack.buf[tmpDataPack.size++] = RUF;
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -427,17 +440,21 @@ int SRL1200_KillTag(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  读取标签的数据。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。 
+	* @param  metaDataFlag: 参考 SRL1200 数据手册。
+	* @param  readMemBank: 参考 SRL1200 数据手册。
+	* @param  readAddress: 参考 SRL1200 数据手册。
+	* @param  wordCount: 参考 SRL1200 数据手册。
+	* @param  accessPassword: 参考 SRL1200 数据手册。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_ReadTagData(UART_HandleTypeDef * huart,
@@ -475,12 +492,12 @@ int SRL1200_ReadTagData(UART_HandleTypeDef * huart,
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -491,27 +508,21 @@ int SRL1200_ReadTagData(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  读取标签保持的信息。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
 	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
-	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  metadataFlags: 参考 SRL1200 数据手册。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_ReadSaveTagInfo(UART_HandleTypeDef * huart,
-												uint16_t  metadataFlags,
-												uint8_t readOption,
-												Data_Buf_t * result,
-												uint16_t * statusCode)
+														uint16_t  metadataFlags,
+														uint8_t readOption,
+														Data_Buf_t * result,
+														uint16_t * statusCode)
 {
 	DataBuf_Clear(&tmpDataPack);
-
 	SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&metadataFlags, 2);
 	tmpDataPack.buf[tmpDataPack.size++] = readOption;
 	
@@ -519,40 +530,38 @@ int SRL1200_ReadSaveTagInfo(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  清楚标签缓存。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
-	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_ClearTagCache(UART_HandleTypeDef * huart,
-												uint16_t  metadataFlags,
-												uint8_t readOption,
-												Data_Buf_t * result,
-												uint16_t * statusCode)
+													Data_Buf_t * result,
+													uint16_t * statusCode)
 {
 	return SRL1200_SendData(huart, 0x2A, NULL, 1000, result, statusCode);
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  块写命令。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  chipType: 参考 SRL1200 数据手册。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。 
+	* @param  subCommand: 参考 SRL1200 数据手册。
+	* @param  accessPassword: 参考 SRL1200 数据手册。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  writeFlag: 参考 SRL1200 数据手册。
+	* @param  memBank: 参考 SRL1200 数据手册。
+	* @param  wordPoint: 参考 SRL1200 数据手册。
+	* @param  wordCount: 写入数据的长度。
+	* @param  data: 待写入的数据，长度为 2*wordCount。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_BlockWrite(UART_HandleTypeDef * huart,
@@ -587,12 +596,12 @@ int SRL1200_BlockWrite(UART_HandleTypeDef * huart,
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -610,17 +619,23 @@ int SRL1200_BlockWrite(UART_HandleTypeDef * huart,
 }
 
 /**
-  * @brief  往标签写入数据。
+  * @brief  清楚块的数据命令。
   * @param  huart: 串口句柄。
-	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。
-	* @param  metaDataFlag: 参考 SRL1200 数据手册。 
-	* @param  selectAddress: 
-	* @param  selectDataLen: 
-	* @param  selectData: 
-	* @param  len: selectData 数据的实际长度  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  chipType: 参考 SRL1200 数据手册。
+	* @param  selectOption: 不同的值，需要不同的参数，不需要的参数用 0 填充即可。 
+	* @param  subCommand: 参考 SRL1200 数据手册。
+	* @param  accessPassword: 参考 SRL1200 数据手册。
+	* @param  selectAddress: 参考 SRL1200 数据手册。
+	* @param  selectDataLen: 参考 SRL1200 数据手册。
+	* @param  selectData: 参考 SRL1200 数据手册。
+	* @param  selectDataActualLen: selectData 数据的实际长度。
+	* @param  wordPoint: 参考 SRL1200 数据手册。
+	* @param  memBank: 参考 SRL1200 数据手册。
+	* @param  wordCount: 写入数据的长度。
+	* @param  data: 待写入的数据，长度为 2*wordCount。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_BlockClear(UART_HandleTypeDef * huart,
@@ -653,12 +668,12 @@ int SRL1200_BlockClear(UART_HandleTypeDef * huart,
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&accessPassword, 4);
 	}
 	
-	if((selectOption & 0x03) == 0x03)
+	if((selectOption & 0x02) == 0x02 || (selectOption & 0x03) == 0x03 || (selectOption & 0x04) == 0x04)
 	{
 		SRL1200_WriteByteData(&tmpDataPack, (uint8_t *)&selectAddress, 4);
 	}
 	
-	if((selectOption & 0x03) > 0)
+	if((selectOption & 0x07) > 0)
 	{
 		tmpDataPack.buf[tmpDataPack.size++] = selectDataLen;
 		memcpy(&tmpDataPack.buf[tmpDataPack.size], selectData, selectDataActualLen);
@@ -683,8 +698,8 @@ int SRL1200_BlockClear(UART_HandleTypeDef * huart,
 	* @param  writePower: 参考 SRL1200 数据手册。
 	* @param  settingTime: 参考 SRL1200 数据手册。  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetAntennaConfig(UART_HandleTypeDef * huart,
@@ -730,8 +745,8 @@ int SRL1200_SetAntennaConfig(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  currentProtocol: 目前值只能为 0x0005, 表示设置为 GEN2，18K-6C协议。  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetCurrentTagProtocol(UART_HandleTypeDef * huart,
@@ -754,8 +769,8 @@ int SRL1200_SetCurrentTagProtocol(UART_HandleTypeDef * huart,
 	* @param  freq2: 2 的频率值。
 	* @param  freq3: 3 的频率值。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetFrequencyHopping(UART_HandleTypeDef * huart,
@@ -791,8 +806,8 @@ int SRL1200_SetFrequencyHopping(UART_HandleTypeDef * huart,
 	* @param  GPIO2: 为 0x02 表示设置 GPIO 2，其他值不设置
 	* @param  GPIO2OutputValue: 0x01 输出高电平，0x00 输出低电平。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetGPIOOutputValue(UART_HandleTypeDef * huart,
@@ -828,8 +843,8 @@ int SRL1200_SetGPIOOutputValue(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  code: 参考 SRL1200 数据手册。  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetCurrentFrequencyRegion(UART_HandleTypeDef * huart,
@@ -851,8 +866,8 @@ int SRL1200_SetCurrentFrequencyRegion(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  powerMode: 参考 SRL1200 数据手册。  
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetPowerMode(UART_HandleTypeDef * huart,
@@ -875,8 +890,8 @@ int SRL1200_SetPowerMode(UART_HandleTypeDef * huart,
 	* @param  key: 参考 SRL1200 数据手册。
 	* @param  value: 参考 SRL1200 数据手册。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetCardReaderConfig(UART_HandleTypeDef * huart,
@@ -905,8 +920,8 @@ int SRL1200_SetCardReaderConfig(UART_HandleTypeDef * huart,
 	* @param  option: 参考 SRL1200 数据手册。
 	* @param  value: 参考 SRL1200 数据手册。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SetProtocolConfig(UART_HandleTypeDef * huart,
@@ -935,8 +950,8 @@ int SRL1200_SetProtocolConfig(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  option: 选项，可以为 0x01 ~ 0x05。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetAntennaConfig(UART_HandleTypeDef * huart,
@@ -956,8 +971,8 @@ int SRL1200_GetAntennaConfig(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  option: 选项，可只能为 0x00 和 0x01，但效果一样。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetReadTransmitPowerInfo(UART_HandleTypeDef * huart,
@@ -976,8 +991,8 @@ int SRL1200_GetReadTransmitPowerInfo(UART_HandleTypeDef * huart,
   * @brief  获取当前工作标签的协议。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetCurrentTagProtocol(UART_HandleTypeDef * huart,
@@ -993,8 +1008,8 @@ int SRL1200_GetCurrentTagProtocol(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  option: 选项，可只能为 0x00 和 0x01，但效果一样。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetWriteTransmitPowerInfo(UART_HandleTypeDef * huart,
@@ -1014,8 +1029,8 @@ int SRL1200_GetWriteTransmitPowerInfo(UART_HandleTypeDef * huart,
   * @param  huart: 串口句柄。
 	* @param  option: 选项, 0x00 表示获取跳频表，0x01 获取跳频间隔。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetFrequencyHoppingTable(UART_HandleTypeDef * huart,
@@ -1037,8 +1052,8 @@ int SRL1200_GetFrequencyHoppingTable(UART_HandleTypeDef * huart,
   * @brief  获取当前 GPIO 的输入值。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetGIPIOInputValue(UART_HandleTypeDef * huart,
@@ -1053,8 +1068,8 @@ int SRL1200_GetGIPIOInputValue(UART_HandleTypeDef * huart,
   * @brief  获取当前频率的区域。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetCurrentFrequencyRegion(UART_HandleTypeDef * huart,
@@ -1069,8 +1084,8 @@ int SRL1200_GetCurrentFrequencyRegion(UART_HandleTypeDef * huart,
   * @brief  获取功率的模式。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetPowerMode(UART_HandleTypeDef * huart,
@@ -1087,8 +1102,8 @@ int SRL1200_GetPowerMode(UART_HandleTypeDef * huart,
 	* @param  option: 与 0x9A 设置的值一致。
 	* @param  key: 与 0x9A 设置的值一致
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetCardReaderConfig(UART_HandleTypeDef * huart,
@@ -1111,8 +1126,8 @@ int SRL1200_GetCardReaderConfig(UART_HandleTypeDef * huart,
 	* @param  procotolValue: 与 0x9B 命令一致。
 	* @param  parameter: 与 0x9B 命令一致
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_ProcotolConfig(UART_HandleTypeDef * huart,
@@ -1133,8 +1148,8 @@ int SRL1200_ProcotolConfig(UART_HandleTypeDef * huart,
   * @brief  获取可用的标签协议。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetCanUseTagProcotol(UART_HandleTypeDef * huart,
@@ -1149,8 +1164,8 @@ int SRL1200_GetCanUseTagProcotol(UART_HandleTypeDef * huart,
   * @brief  获取可用的频率区域。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetCanUseFrequencyRegion(UART_HandleTypeDef * huart,
@@ -1165,8 +1180,8 @@ int SRL1200_GetCanUseFrequencyRegion(UART_HandleTypeDef * huart,
   * @brief  获取芯片当前的温度。
   * @param  huart: 串口句柄。
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_GetCurentTemperature(UART_HandleTypeDef * huart,
@@ -1185,8 +1200,8 @@ int SRL1200_GetCurentTemperature(UART_HandleTypeDef * huart,
 	* @param  command: 命令。
 	* @param  dataBuf: 数据缓冲区
 	* @param  timeout：超过此时间，还没有收到模块回复，表示发送失败。
-	* @param  result：保存模块回复的数据。
-  * @param  statusCode：，模块回复的状态码。
+	* @param  result: 保存模块回复的数据。
+  * @param  statusCode: 模块回复的状态码。
 	* @retval 返回 0 表示接收模块数据成功，返回 -1 表示接收失败。
   */
 int SRL1200_SendData(UART_HandleTypeDef * huart, 

@@ -133,26 +133,54 @@ void StartDefaultTask(void const * argument)
 /* USER CODE BEGIN Application */
 void test00(void)
 {
-	printf("准备从 Boot 层切换到 App 层\r\n");
-	if(SRL1200_BootSwitchApp(&huart1) == -1)
-	{
-		printf("从 Boot 层切换到 App 层失败\r\n");
-	}
-	else
-	{
-		printf("成功从 Boot 层切换到 App 层\r\n");
-		printf("---------------------------------开始测试---------------------------------\r\n");
-		test02();
-	}
+//	printf("准备从 Boot 层切换到 App 层\r\n");
+//	if(SRL1200_BootSwitchApp(&huart1) == -1)
+//	{
+//		printf("从 Boot 层切换到 App 层失败\r\n");
+//	}
+//	else
+//	{
+//		printf("成功从 Boot 层切换到 App 层\r\n");
+//		printf("---------------------------------开始测试---------------------------------\r\n");
+//		test02();
+//	}
+	test01();
 }
 
 void test01(void)
 {
-	printf("------------------------------App层操作命令测试------------------------------\r\n");
-	printf("1.测试单标签的读操作\r\n");
+//	uint8_t buf = 0x60;
+//	uint8_t buf[] = {0xAA, 0xAA, 0xBB, 0xBB, 0xCC, 0xCC, 0xDD, 0xDD};
+//	uint8_t buf[] = {0x11, 0x11, 0x22, 0x22, 0x33, 0x33, 0x44, 0x44};
+//	printf("------------------------------App层操作命令测试------------------------------\r\n");
+//	printf("1.测试单标签的读操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_ReadTagSingle(&huart1, 0x01E8, 0x10, 0x0014, 0, 0, NULL, 0, NULL, NULL);	
+//	printf("2.测试多标签的读操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_ReadTagMultiple(&huart1, 0x00, 0, 0x00C8, 0, 0, 0, NULL, 0, NULL, NULL);
+//	printf("3.测试写 EPC 操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_WriteTagEPC(&huart1, 0x00C8, 0x00, 0, 0, 0, 0, NULL, 0, buf, 8, NULL, NULL);
+//	printf("4.测试写 数据操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_WriteTagData(&huart1, 0x03E8, 00, 0x01, 0x03, 0, 0, 0, NULL, 0, buf, 8, NULL, NULL);
+//	printf("5.测试锁定或解锁标签操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_LockOrUnlockTag(&huart1, 0x03E8, 00, 0x00, 0x02, 0x02, 0, 0, NULL, 0, NULL, NULL);
+//	printf("6.测试杀死标签操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_KillTag(&huart1, 0x03E8, 00, 0, 0, 0, 0, NULL, 0, NULL, NULL);
+//	printf("7.测试读取标签数据操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_ReadTagData(&huart1, 0x03E8, 0x00, 0, 0x02, 0x01, 0x02, 0, 0x10, 0x04, &buf, 1, NULL, NULL);
+//	printf("8.测试读取标签保存的信息操作\r\n");
+//	printf("----------------------------------------------------------------------------\r\n");
+//	SRL1200_ReadSaveTagInfo(&huart1, 0x00BF, 0x00, NULL, NULL);
+	printf("9.清楚标签缓冲操作\r\n");
 	printf("----------------------------------------------------------------------------\r\n");
-	SRL1200_ReadTagSingle(&huart1, 0x01E8, 0x10, 0x0014, 0, 0, NULL, 0, NULL, NULL);
-	
+	SRL1200_ClearTagCache(&huart1, NULL, NULL);
+
 }
 
 void test02(void)
@@ -213,139 +241,6 @@ void test03(void)
 	printf("--------------------------------------------------------------------------\r\n");
 	
 }
-
-//void test02(void)
-//{
-//	printf("APP 层操作命令\r\n");
-//	printf("--------------------------------------------------------------------------\r\n");
-//	printf("1.单标签存盘命令\r\n");
-//	sendDataPack.buf[0] = 0x03;
-//	sendDataPack.buf[1] = 0xE8;
-//	
-//	sendDataPack.buf[2] = 0x03;
-//	
-//	sendDataPack.buf[3] = 0x00;
-//	sendDataPack.buf[4] = 0x00;
-//	sendDataPack.buf[6] = 0x00;
-//	sendDataPack.buf[7] = 0x20;
-//	
-//	sendDataPack.buf[8] = 0x10;
-//	
-//	sendDataPack.buf[9] = 0x12;
-//	sendDataPack.buf[10] = 0x34;
-//	sendDataPack.size = 0x0A;
-//	SRL1200_SendData(&huart1, 0x21, &sendDataPack, 0x03E8, &recvDataPack);
-//	DataBuf_Clear(&recvDataPack);
-//	printf("--------------------------------------------------------------------------\r\n");
-//	printf("2.多标签存盘命令\r\n");
-//	sendDataPack.buf[0] = 0x00;
-//	
-//	sendDataPack.buf[1] = 0x00;
-//	sendDataPack.buf[2] = 0x00;
-//	
-//	sendDataPack.buf[3] = 0x00;
-//	sendDataPack.buf[4] = 0xC8;
-//	
-//	sendDataPack.size = 0x05;
-//	SRL1200_SendData(&huart1, 0x22, &sendDataPack, 0x00C8, &recvDataPack);
-//	DataBuf_Clear(&recvDataPack);
-//	printf("--------------------------------------------------------------------------\r\n");
-//	printf("3.写标签 EPC 命令\r\n");
-//	sendDataPack.buf[0] = 0x03;
-//	sendDataPack.buf[1] = 0xE8;
-//	
-//	sendDataPack.buf[2] = 0x00;
-//	
-//	sendDataPack.buf[3] = 0x00;
-//	
-//	sendDataPack.buf[4] = 0x11;
-//	sendDataPack.buf[5] = 0x11;
-//	sendDataPack.buf[6] = 0x22;
-//	sendDataPack.buf[7] = 0x22;
-//	sendDataPack.buf[8] = 0x33;
-//	sendDataPack.buf[9] = 0x33;
-//	sendDataPack.buf[10] = 0x44;
-//	sendDataPack.buf[11] = 0x44;
-//	
-//	sendDataPack.size = 0x0C;
-//	SRL1200_SendData(&huart1, 0x23, &sendDataPack, 0x03E8, &recvDataPack);
-//	DataBuf_Clear(&recvDataPack);
-//	printf("--------------------------------------------------------------------------\r\n");
-//	printf("4.写标签存储区命令\r\n");
-//	sendDataPack.buf[0] = 0x03;
-//	sendDataPack.buf[1] = 0xE8;
-//	
-//	sendDataPack.buf[2] = 0x00;
-//	
-//	sendDataPack.buf[3] = 0x00;
-//	sendDataPack.buf[4] = 0x00;
-//	sendDataPack.buf[5] = 0x00;
-//	sendDataPack.buf[6] = 0x01;
-//	
-//	sendDataPack.buf[7] = 0x03;
-//	
-//	sendDataPack.buf[8] = 0xAA;
-//	sendDataPack.buf[9] = 0xAA;
-//	sendDataPack.buf[10] = 0xAA;
-//	sendDataPack.buf[11] = 0xAA;
-//	sendDataPack.buf[12] = 0xBB;
-//	sendDataPack.buf[13] = 0xBB;
-//	sendDataPack.buf[14] = 0xBB;
-//	sendDataPack.buf[15] = 0xBB;
-//	sendDataPack.buf[16] = 0xCC;
-//	sendDataPack.buf[17] = 0xCC;
-//	sendDataPack.buf[18] = 0xCC;
-//	sendDataPack.buf[19] = 0xCC;
-//	sendDataPack.buf[20] = 0xDD;
-//	sendDataPack.buf[21] = 0xDD;
-//	sendDataPack.buf[22] = 0xDD;
-//	sendDataPack.buf[23] = 0xDD;
-//	
-//	sendDataPack.size = 0x14;
-//	SRL1200_SendData(&huart1, 0x24, &sendDataPack, 0x03E8, &recvDataPack);
-//	DataBuf_Clear(&recvDataPack);
-//		printf("--------------------------------------------------------------------------\r\n");
-//	printf("4.写标签存储区命令\r\n");
-//	sendDataPack.buf[0] = 0x03;
-//	sendDataPack.buf[1] = 0xE8;
-//	
-//	sendDataPack.buf[2] = 0x00;
-//	
-//	sendDataPack.buf[3] = 0x00;
-//	sendDataPack.buf[4] = 0x00;
-//	sendDataPack.buf[5] = 0x00;
-//	sendDataPack.buf[6] = 0x01;
-//	
-//	sendDataPack.buf[7] = 0x03;
-//	
-//	sendDataPack.buf[8] = 0xAA;
-//	sendDataPack.buf[9] = 0xAA;
-//	sendDataPack.buf[10] = 0xAA;
-//	sendDataPack.buf[11] = 0xAA;
-//	sendDataPack.buf[12] = 0xBB;
-//	sendDataPack.buf[13] = 0xBB;
-//	sendDataPack.buf[14] = 0xBB;
-//	sendDataPack.buf[15] = 0xBB;
-//	sendDataPack.buf[16] = 0xCC;
-//	sendDataPack.buf[17] = 0xCC;
-//	sendDataPack.buf[18] = 0xCC;
-//	sendDataPack.buf[19] = 0xCC;
-//	sendDataPack.buf[20] = 0xDD;
-//	sendDataPack.buf[21] = 0xDD;
-//	sendDataPack.buf[22] = 0xDD;
-//	sendDataPack.buf[23] = 0xDD;
-//	
-//	sendDataPack.size = 0x14;
-//	SRL1200_SendData(&huart1, 0x24, &sendDataPack, 0x03E8, &recvDataPack);
-//	DataBuf_Clear(&recvDataPack);
-//}
-
-//void test04(void)
-//{
-//	printf("APP 层设置命令\r\n");
-//	printf("--------------------------------------------------------------------------\r\n");
-//	printf("1.单标签存盘命令\r\n");
-//}
 /* USER CODE END Application */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
